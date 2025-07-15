@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        BACKEND_SERVER = "ubuntu@10.0.2.232"
-        FRONTEND_SERVER = "ubuntu@18.232.62.148"
+        BACKEND_SERVER = "ec2-user@10.0.2.71"
+        FRONTEND_SERVER = "ec2-user@35.173.132.120"
         SSH_KEY = credentials('jenkins-ec2-key')  // Add this credential in Jenkins
     }
 
