@@ -1,4 +1,4 @@
-const apiUrl = "http://<APP_SERVER_IP>:5000";  // Replace with your app server IP
+const apiUrl = "http://10.0.2.71:5000";  // Replace with your app server IP
 
 function getBalance() {
   fetch(`${apiUrl}/balance`)
