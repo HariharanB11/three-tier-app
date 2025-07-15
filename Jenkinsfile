@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     environment {
-        BASTION_HOST = "ec2-user@35.173.132.120"   // Frontend server (public IP)
+        HOME = '/var/lib/jenkins'                   // Ensure Jenkins uses the right .ssh directory
+        BASTION_HOST = "ec2-user@35.173.132.120"    // Bastion host (public IP)
         BACKEND_SERVER = "ec2-user@10.0.2.71"       // Backend server (private IP)
-        FRONTEND_SERVER = "ec2-user@35.173.132.120"
-        SSH_KEY = credentials('jenkins-ec2-key')    // Your SSH key in Jenkins credentials
+        FRONTEND_SERVER = "ec2-user@35.173.132.120" // Frontend server (public IP)
+        SSH_KEY = credentials('jenkins-ec2-key')    // SSH private key stored in Jenkins credentials
     }
 
     stages {
@@ -51,10 +52,15 @@ pipeline {
                         echo "🚀 Deploying backend to $BACKEND_SERVER via bastion $BASTION_HOST..."
                         
                         # Copy backend files to backend server via bastion host
-                        scp -o ProxyJump=$BASTION_HOST -r backend/app.py backend/requirements.txt backend/venv $BACKEND_SERVER:/home/ec2-user/backend/
+                        scp -o ProxyJump=$BASTION_HOST \
+                            -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+                            -r backend/app.py backend/requirements.txt backend/venv \
+                            $BACKEND_SERVER:/home/ec2-user/backend/
 
                         # SSH into backend server via bastion and start backend app
-                        ssh -o ProxyJump=$BASTION_HOST $BACKEND_SERVER << 'ENDSSH'
+                        ssh -o ProxyJump=$BASTION_HOST \
+                            -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+                            $BACKEND_SERVER << 'ENDSSH'
                             cd /home/ec2-user/backend
                             source venv/bin/activate
                             nohup python3 app.py > app.log 2>&1 &
@@ -72,7 +78,8 @@ pipeline {
                 sshagent (credentials: ['jenkins-ec2-key']) {
                     sh '''
                         echo "🚀 Deploying frontend to $FRONTEND_SERVER..."
-                        scp -r frontend/build/* $FRONTEND_SERVER:/var/www/html/
+                        scp -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+                            -r frontend/build/* $FRONTEND_SERVER:/var/www/html/
                         echo "✅ Frontend deployed successfully."
                     '''
                 }
