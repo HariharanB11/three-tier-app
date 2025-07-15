@@ -4,7 +4,7 @@ pipeline {
     environment {
         BACKEND_SERVER = "ec2-user@10.0.2.71"
         FRONTEND_SERVER = "ec2-user@35.173.132.120"
-        SSH_KEY = credentials('jenkins-ec2-key') // Jenkins SSH private key
+        SSH_KEY = credentials('jenkins-ec2-key') // Make sure this SSH key is configured in Jenkins
         BACKEND_DIR = "backend"
         FRONTEND_DIR = "frontend"
     }
@@ -12,7 +12,8 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/HariharanB11/three-tier-app.git'
+                echo "📥 Checking out code from Git..."
+                checkout scm
             }
         }
 
@@ -23,10 +24,13 @@ pipeline {
                         echo "🔧 Installing frontend dependencies..."
                         npm install
 
-                        echo "⚡ Fixing audit issues (if any)..."
-                        npm audit fix --force || true
+                        echo "📦 Checking for react-scripts..."
+                        if ! npx react-scripts --version > /dev/null 2>&1; then
+                            echo "⚠️ react-scripts missing. Installing it..."
+                            npm install react-scripts
+                        fi
 
-                        echo "📦 Building frontend..."
+                        echo "🚀 Building frontend..."
                         npm run build
                     '''
                 }
@@ -40,17 +44,14 @@ pipeline {
                         echo "🐍 Setting up Python virtual environment..."
                         python3 -m venv venv
 
-                        echo "🔥 Activating virtualenv..."
-                        source venv/bin/activate
-
-                        echo "⬆️ Upgrading pip..."
-                        pip install --upgrade pip
+                        echo "🔧 Activating virtual environment..."
+                        . venv/bin/activate
 
                         echo "📦 Installing backend dependencies..."
+                        pip install --upgrade pip
                         pip install -r requirements.txt
 
-                        echo "🚫 Deactivating virtualenv..."
-                        deactivate
+                        echo "✅ Backend dependencies installed successfully."
                     '''
                 }
             }
@@ -61,20 +62,17 @@ pipeline {
                 sshagent(['jenkins-ec2-key']) {
                     sh '''
                         echo "🚀 Deploying backend to ${BACKEND_SERVER}..."
+                        scp -r ${BACKEND_DIR}/* ${BACKEND_SERVER}:/home/ec2-user/backend/
 
-                        # Copy backend files
-                        rsync -avz -e "ssh -o StrictHostKeyChecking=no" ${BACKEND_DIR}/ ${BACKEND_SERVER}:/home/ec2-user/backend/
-
-                        # Run backend setup remotely
-                        ssh -o StrictHostKeyChecking=no ${BACKEND_SERVER} << EOF
-                            cd /home/ec2-user/backend
-                            python3 -m venv venv
-                            source venv/bin/activate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
-                            pkill -f app.py || true
-                            nohup python3 app.py > backend.log 2>&1 &
-                        EOF
+                        ssh ${BACKEND_SERVER} '
+                            cd /home/ec2-user/backend &&
+                            python3 -m venv venv &&
+                            source venv/bin/activate &&
+                            pip install --upgrade pip &&
+                            pip install -r requirements.txt &&
+                            echo "🔄 Restarting backend service..." &&
+                            sudo systemctl restart backend.service
+                        '
                     '''
                 }
             }
@@ -85,16 +83,12 @@ pipeline {
                 sshagent(['jenkins-ec2-key']) {
                     sh '''
                         echo "🚀 Deploying frontend to ${FRONTEND_SERVER}..."
+                        scp -r ${FRONTEND_DIR}/build/* ${FRONTEND_SERVER}:/home/ec2-user/frontend/
 
-                        # Copy frontend build folder
-                        rsync -avz -e "ssh -o StrictHostKeyChecking=no" ${FRONTEND_DIR}/build/ ${FRONTEND_SERVER}:/home/ec2-user/frontend/
-
-                        # Serve frontend using nginx or serve
-                        ssh -o StrictHostKeyChecking=no ${FRONTEND_SERVER} << EOF
-                            sudo mkdir -p /var/www/html
-                            sudo cp -r /home/ec2-user/frontend/* /var/www/html/
-                            sudo systemctl restart nginx || echo "Nginx not installed"
-                        EOF
+                        ssh ${FRONTEND_SERVER} '
+                            echo "🔄 Restarting frontend server (nginx)..."
+                            sudo systemctl restart nginx
+                        '
                     '''
                 }
             }
@@ -103,10 +97,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Deployment Successful!'
+            echo "✅ Deployment Completed Successfully!"
         }
         failure {
-            echo '❌ Deployment Failed!'
+            echo "❌ Deployment Failed!"
         }
     }
 }
