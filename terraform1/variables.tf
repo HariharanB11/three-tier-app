@@ -36,7 +36,8 @@ variable "ec2_instance_type" {
 }
 
 variable "ec2_key_name" {
-  description = "jenkins"
+  description = "Name of the existing AWS key pair to use for EC2 instances"
+  default     = "jenkins"
 }
 
 # RDS Configuration
