@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        HOME = '/var/lib/jenkins'                   // Ensure Jenkins uses the right .ssh directory
-        BASTION_HOST = "ec2-user@35.173.132.120"    // Bastion host (public IP)
+        HOME = '/var/lib/jenkins'                   // Jenkins home directory for .ssh
+        BASTION_HOST = "ec2-user@35.173.132.120"    // Bastion host (Elastic IP)
         BACKEND_SERVER = "ec2-user@10.0.2.71"       // Backend server (private IP)
-        FRONTEND_SERVER = "ec2-user@184.72.94.212" // Frontend server (public IP)
-        SSH_KEY = credentials('jenkins-ec2-key')    // SSH private key stored in Jenkins credentials
+        FRONTEND_SERVER = "ec2-user@184.72.94.212"  // Frontend server (public IP)
+        SSH_KEY = credentials('jenkins-ec2-key')    // SSH key stored in Jenkins credentials
     }
 
     stages {
@@ -21,7 +21,7 @@ pipeline {
                 dir('frontend') {
                     sh '''
                         echo "🔧 Installing frontend dependencies..."
-                        npm install
+                        npm ci
                         echo "📦 Building frontend..."
                         npm run build
                     '''
@@ -50,24 +50,27 @@ pipeline {
                 sshagent (credentials: ['jenkins-ec2-key']) {
                     sh '''
                         echo "🚀 Deploying backend to $BACKEND_SERVER via bastion $BASTION_HOST..."
-                        
-                        # Copy backend files to backend server via bastion host
-                        scp -o ProxyJump=$BASTION_HOST \
-                            -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
-                            -r backend/app.py backend/requirements.txt backend/venv \
-                            $BACKEND_SERVER:/home/ec2-user/backend/
 
-                        # SSH into backend server via bastion and start backend app
-                        ssh -o ProxyJump=$BASTION_HOST \
-                            -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+                        # Copy backend files to backend server via bastion host
+                        scp -i $SSH_KEY \
+                            -o ProxyJump=$BASTION_HOST \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
+                            -r backend/* $BACKEND_SERVER:/home/ec2-user/backend/
+
+                        # SSH into backend server via bastion host and start backend app
+                        ssh -i $SSH_KEY \
+                            -o ProxyJump=$BASTION_HOST \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
                             $BACKEND_SERVER << 'ENDSSH'
                             cd /home/ec2-user/backend
+                            python3 -m venv venv
                             source venv/bin/activate
                             nohup python3 app.py > app.log 2>&1 &
                             deactivate
+                            echo "✅ Backend app started successfully."
                         ENDSSH
-
-                        echo "✅ Backend deployed successfully."
                     '''
                 }
             }
@@ -78,7 +81,9 @@ pipeline {
                 sshagent (credentials: ['jenkins-ec2-key']) {
                     sh '''
                         echo "🚀 Deploying frontend to $FRONTEND_SERVER..."
-                        scp -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+                        scp -i $SSH_KEY \
+                            -o StrictHostKeyChecking=no \
+                            -o UserKnownHostsFile=/dev/null \
                             -r frontend/build/* $FRONTEND_SERVER:/var/www/html/
                         echo "✅ Frontend deployed successfully."
                     '''
