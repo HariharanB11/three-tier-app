@@ -6,7 +6,7 @@ pipeline {
         BASTION_HOST = "ec2-user@54.85.229.98"
         BACKEND_SERVER = "ec2-user@10.0.2.71"
         FRONTEND_SERVER = "ec2-user@184.72.94.212"
-        BACKEND_KEY = "/home/ec2-user/jenkins.pem" // Path to key on Bastion
+        BACKEND_KEY = "/home/ec2-user/jenkins.pem"
     }
 
     stages {
@@ -47,7 +47,7 @@ pipeline {
 
         stage('Deploy Backend') {
             steps {
-                sshagent (credentials: ['bastion-ec2-key']) { // Jenkins SSH creds for Bastion
+                sshagent (credentials: ['bastion-ec2-key']) {
                     sh '''
                         echo "🚀 Copying backend to Bastion $BASTION_HOST..."
                         scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
@@ -57,15 +57,15 @@ pipeline {
                         ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                             $BASTION_HOST << 'ENDSSH'
 
-                            echo "🔑 Ensuring correct permissions for backend key..."
-                            chmod 400 $BACKEND_KEY
+                            echo "🔑 Setting permissions for backend key..."
+                            chmod 400 /home/ec2-user/jenkins.pem
 
                             echo "📦 Copying backend code to Backend EC2..."
-                            scp -i $BACKEND_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            scp -i /home/ec2-user/jenkins.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                                 -r /home/ec2-user/backend ec2-user@10.0.2.71:/home/ec2-user/
 
                             echo "🚀 SSH into Backend EC2 and start app..."
-                            ssh -i $BACKEND_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            ssh -i /home/ec2-user/jenkins.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                                 ec2-user@10.0.2.71 << 'INNERSSH'
                                 cd /home/ec2-user/backend
                                 python3 -m venv venv
@@ -82,7 +82,7 @@ ENDSSH
 
         stage('Deploy Frontend') {
             steps {
-                sshagent (credentials: ['jenkins-ec2-key']) { // Jenkins SSH creds for Frontend EC2
+                sshagent (credentials: ['jenkins-ec2-key']) {
                     sh '''
                         echo "🚀 Deploying frontend to $FRONTEND_SERVER..."
                         scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
