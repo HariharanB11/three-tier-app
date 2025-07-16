@@ -84,6 +84,29 @@ ENDSSH
             steps {
                 sshagent (credentials: ['jenkins-ec2-key']) {
                     sh '''
+                        echo "🚀 Preparing frontend server..."
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            $FRONTEND_SERVER << 'FRONTENDSSH'
+                            # Install Nginx if not installed
+                            if ! command -v nginx > /dev/null 2>&1; then
+                                echo "📦 Installing Nginx..."
+                                sudo yum update -y
+                                sudo amazon-linux-extras enable nginx1
+                                sudo yum install nginx -y
+                                sudo systemctl start nginx
+                                sudo systemctl enable nginx
+                            else
+                                echo "✅ Nginx already installed."
+                            fi
+
+                            # Create /var/www/html if missing
+                            if [ ! -d /var/www/html ]; then
+                                echo "📁 Creating /var/www/html..."
+                                sudo mkdir -p /var/www/html
+                                sudo chown ec2-user:ec2-user /var/www/html
+                            fi
+FRONTENDSSH
+
                         echo "🚀 Deploying frontend to $FRONTEND_SERVER..."
                         scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
                             -r frontend/build/* $FRONTEND_SERVER:/var/www/html/
@@ -103,3 +126,4 @@ ENDSSH
         }
     }
 }
+
