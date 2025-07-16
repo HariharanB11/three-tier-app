@@ -2,29 +2,23 @@ pipeline {
     agent any
 
     environment {
-        HOME = '/var/lib/jenkins'                   // Jenkins home directory for .ssh
-        BASTION_HOST = "ec2-user@35.173.132.120"    // Bastion host (Elastic IP)
-        BACKEND_SERVER = "ec2-user@10.0.2.71"       // Backend server (private IP)
-        FRONTEND_SERVER = "ec2-user@184.72.94.212"  // Frontend server (public IP)
-        SSH_KEY = credentials('jenkins-ec2-key')    // SSH key stored in Jenkins credentials
+        BACKEND_SERVER = "ec2-user@10.0.2.71"
+        FRONTEND_SERVER = "ec2-user@184.72.94.212"
+        SSH_KEY = credentials('jenkins-ec2-key')  // Add this credential in Jenkins
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                checkout scm
+                git branch: 'main', url: 'https://github.com/HariharanB11/three-tier-app.git'
             }
         }
 
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    sh '''
-                        echo "🔧 Installing frontend dependencies..."
-                        npm ci
-                        echo "📦 Building frontend..."
-                        npm run build
-                    '''
+                    sh 'npm install'
+                    sh 'npm run build'
                 }
             }
         }
@@ -32,61 +26,31 @@ pipeline {
         stage('Build Backend') {
             steps {
                 dir('backend') {
-                    sh '''
-                        echo "🐍 Setting up Python virtual environment..."
-                        python3 -m venv venv
-                        . venv/bin/activate
-                        echo "📦 Installing backend dependencies..."
-                        pip install --upgrade pip
-                        pip install -r requirements.txt
-                        deactivate
-                    '''
+                    sh 'pip install -r requirements.txt'
                 }
             }
         }
 
         stage('Deploy Backend') {
             steps {
-                sshagent (credentials: ['jenkins-ec2-key']) {
-                    sh '''
-                        echo "🚀 Deploying backend to $BACKEND_SERVER via bastion $BASTION_HOST..."
-
-                        # Copy backend files to backend server via bastion host
-                        scp -i $SSH_KEY \
-                            -o ProxyJump=$BASTION_HOST \
-                            -o StrictHostKeyChecking=no \
-                            -o UserKnownHostsFile=/dev/null \
-                            -r backend/* $BACKEND_SERVER:/home/ec2-user/backend/
-
-                        # SSH into backend server via bastion host and start backend app
-                        ssh -i $SSH_KEY \
-                            -o ProxyJump=$BASTION_HOST \
-                            -o StrictHostKeyChecking=no \
-                            -o UserKnownHostsFile=/dev/null \
-                            $BACKEND_SERVER << 'ENDSSH'
-                            cd /home/ec2-user/backend
-                            python3 -m venv venv
-                            source venv/bin/activate
-                            nohup python3 app.py > app.log 2>&1 &
-                            deactivate
-                            echo "✅ Backend app started successfully."
-                        ENDSSH
-                    '''
+                sshagent(['jenkins-ec2-key']) {
+                    sh """
+                    scp -o StrictHostKeyChecking=no -r backend/* $BACKEND_SERVER:/home/ubuntu/backend
+                    ssh -o StrictHostKeyChecking=no $BACKEND_SERVER '
+                        cd /home/ubuntu/backend &&
+                        nohup python3 app.py &
+                    '
+                    """
                 }
             }
         }
 
         stage('Deploy Frontend') {
             steps {
-                sshagent (credentials: ['jenkins-ec2-key']) {
-                    sh '''
-                        echo "🚀 Deploying frontend to $FRONTEND_SERVER..."
-                        scp -i $SSH_KEY \
-                            -o StrictHostKeyChecking=no \
-                            -o UserKnownHostsFile=/dev/null \
-                            -r frontend/build/* $FRONTEND_SERVER:/var/www/html/
-                        echo "✅ Frontend deployed successfully."
-                    '''
+                sshagent(['jenkins-ec2-key']) {
+                    sh """
+                    scp -o StrictHostKeyChecking=no -r frontend/build/* $FRONTEND_SERVER:/var/www/html
+                    """
                 }
             }
         }
@@ -94,10 +58,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Deployment completed successfully!'
+            echo 'Deployment Successful ✅'
         }
         failure {
-            echo '❌ Deployment failed!'
+            echo 'Deployment Failed ❌'
         }
     }
 }
