@@ -5,7 +5,7 @@ pipeline {
         HOME = '/var/lib/jenkins'                   // Ensure Jenkins uses the right .ssh directory
         BASTION_HOST = "ec2-user@35.173.132.120"    // Bastion host (public IP)
         BACKEND_SERVER = "ec2-user@10.0.2.71"       // Backend server (private IP)
-        FRONTEND_SERVER = "ec2-user@35.173.132.120" // Frontend server (public IP)
+        FRONTEND_SERVER = "ec2-user@184.72.94.212" // Frontend server (public IP)
         SSH_KEY = credentials('jenkins-ec2-key')    // SSH private key stored in Jenkins credentials
     }
 
