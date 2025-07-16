@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         HOME = '/var/lib/jenkins'
-        BASTION_HOST = "ec2-user@35.173.132.120"
+        BASTION_HOST = "ec2-user@54.85.229.98"
         BACKEND_SERVER = "ec2-user@10.0.2.71"
         FRONTEND_SERVER = "ec2-user@184.72.94.212"
     }
