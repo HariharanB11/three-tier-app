@@ -1,40 +1,71 @@
-import './App.css';
+import React, { useState } from "react";
+import "./App.css";
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (username === "user" && password === "password") {
+      setIsLoggedIn(true);
+    } else {
+      alert("Invalid credentials");
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUsername("");
+    setPassword("");
+  };
+
   return (
     <div className="App">
-      <header className="App-header" style={{ backgroundColor: '#282c34', padding: '20px', color: 'white' }}>
-        <h1>🌟 Welcome to My React App</h1>
-        <p>Your modern web app is live!</p>
+      <header className="App-header">
+        <h1>🏦 iBanking Application</h1>
+        {!isLoggedIn ? (
+          <form onSubmit={handleLogin} className="login-form">
+            <h2>Login</h2>
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button type="submit">Login</button>
+          </form>
+        ) : (
+          <div className="dashboard">
+            <h2>Welcome, {username}</h2>
+            <div className="account-summary">
+              <h3>Account Summary</h3>
+              <p>Balance: ₹1,25,000</p>
+              <p>Account Number: 1234 5678 9012</p>
+            </div>
+            <div className="transactions">
+              <h3>Recent Transactions</h3>
+              <ul>
+                <li>+ ₹5,000 - Salary</li>
+                <li>- ₹2,000 - Grocery</li>
+                <li>- ₹1,000 - Electricity Bill</li>
+              </ul>
+            </div>
+            <button className="logout-btn" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        )}
       </header>
-
-      <main style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>🚀 Deployed with Jenkins CI/CD</h2>
-        <p>This is a sample React frontend deployed on AWS EC2 using Jenkins pipelines.</p>
-        <p>Edit <code>src/App.js</code> and redeploy to see changes instantly.</p>
-
-        <a
-          href="https://your-backend-api.example.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'inline-block',
-            marginTop: '20px',
-            padding: '10px 20px',
-            backgroundColor: '#61dafb',
-            color: '#000',
-            textDecoration: 'none',
-            borderRadius: '5px',
-            fontWeight: 'bold'
-          }}
-        >
-          🌐 Visit Backend API
-        </a>
-      </main>
-
-      <footer style={{ backgroundColor: '#f1f1f1', padding: '10px', marginTop: '40px' }}>
-        <p>© 2025 My React App. All rights reserved.</p>
-      </footer>
     </div>
   );
 }
